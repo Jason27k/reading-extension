@@ -1,0 +1,13 @@
+{
+  "name": "read-along",
+  "private": true,
+  "description": "Firefox extension that reads web books aloud with Google Cloud TTS and highlights as it reads.",
+  "scripts": {
+    "lint": "web-ext lint --source-dir extension",
+    "build": "web-ext build --source-dir extension --overwrite-dest",
+    "start": "web-ext run --source-dir extension --url https://learning.oreilly.com"
+  },
+  "devDependencies": {
+    "web-ext": "^8.0.0"
+  }
+}

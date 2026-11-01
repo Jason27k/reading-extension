@@ -1,0 +1,82 @@
+{
+  "manifest_version": 3,
+  "name": "Read Along",
+  "version": "0.1.0",
+  "description": "Reads web books aloud with Google Cloud Text-to-Speech, highlighting each word as it goes.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "read-along@jason27k",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent"]
+      }
+    }
+  },
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "permissions": ["storage", "menus"],
+  "host_permissions": ["https://texttospeech.googleapis.com/*", "<all_urls>"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/text.js", "content/player.js", "content/bar.js", "content/main.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Read Along: show/hide controls",
+    "default_icon": "icons/icon.svg"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "commands": {
+    "toggle-play": {
+      "suggested_key": { "default": "Alt+Shift+P" },
+      "description": "Play / pause (starts from the selection if there is one)"
+    },
+    "read-selection": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "Read from the selection (or from the top of the screen)"
+    },
+    "stop": {
+      "suggested_key": { "default": "Alt+Shift+S" },
+      "description": "Stop reading"
+    },
+    "speed-up": {
+      "suggested_key": { "default": "Alt+Shift+Period" },
+      "description": "Speed up"
+    },
+    "speed-down": {
+      "suggested_key": { "default": "Alt+Shift+Comma" },
+      "description": "Slow down"
+    },
+    "next-sentence": {
+      "suggested_key": { "default": "Alt+Shift+Right" },
+      "description": "Next sentence"
+    },
+    "prev-sentence": {
+      "suggested_key": { "default": "Alt+Shift+Left" },
+      "description": "Previous sentence"
+    },
+    "next-paragraph": {
+      "suggested_key": { "default": "Alt+Shift+Down" },
+      "description": "Next paragraph"
+    },
+    "prev-paragraph": {
+      "suggested_key": { "default": "Alt+Shift+Up" },
+      "description": "Previous paragraph"
+    },
+    "toggle-bar": {
+      "suggested_key": { "default": "Alt+Shift+B" },
+      "description": "Show / hide the control bar"
+    }
+  }
+}

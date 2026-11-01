@@ -1,0 +1,7 @@
+::highlight(read-along-sentence) {
+  background-color: rgba(240, 180, 41, 0.22);
+}
+
+::highlight(read-along-word) {
+  background-color: rgba(240, 180, 41, 0.65);
+}

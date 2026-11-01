@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Read Along Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Read Along</h1>
+
+      <section id="permission-warning" hidden>
+        <p>Read Along needs access to websites to read them and to reach Google's TTS service.</p>
+        <button id="grant">Grant access</button>
+      </section>
+
+      <section>
+        <label for="api-key">Google Cloud API key</label>
+        <div class="row">
+          <input id="api-key" type="password" autocomplete="off" spellcheck="false" />
+          <button id="toggle-key" type="button">Show</button>
+        </div>
+        <p class="hint">Stored only in this browser. Restrict the key to the Cloud Text-to-Speech API.</p>
+      </section>
+
+      <section>
+        <label for="voice">Voice</label>
+        <div class="row">
+          <select id="voice"></select>
+          <button id="test" type="button">Test</button>
+        </div>
+        <p class="hint">Only Standard and WaveNet voices are listed, since they support word highlighting.</p>
+      </section>
+
+      <section>
+        <label for="rate">Speed</label>
+        <div class="row">
+          <input id="rate" type="number" min="0.75" max="3" step="0.05" />
+        </div>
+      </section>
+
+      <section>
+        <label class="check"><input id="skip-code" type="checkbox" /> Skip code blocks</label>
+      </section>
+
+      <section>
+        <h2>Usage this month</h2>
+        <p id="usage">—</p>
+        <p class="hint">Characters billed by Google. Check your plan's free tier in the Cloud console.</p>
+      </section>
+
+      <section>
+        <h2>Keyboard shortcuts</h2>
+        <table>
+          <tr><td>Alt+Shift+P</td><td>Play / pause (starts from the selection if there is one)</td></tr>
+          <tr><td>Alt+Shift+R</td><td>Read from the selection</td></tr>
+          <tr><td>Alt+Shift+S</td><td>Stop</td></tr>
+          <tr><td>Alt+Shift+. / ,</td><td>Faster / slower</td></tr>
+          <tr><td>Alt+Shift+→ / ←</td><td>Next / previous sentence</td></tr>
+          <tr><td>Alt+Shift+↓ / ↑</td><td>Next / previous paragraph</td></tr>
+          <tr><td>Alt+Shift+B</td><td>Show / hide the control bar</td></tr>
+        </table>
+        <p class="hint">Change them at about:addons → gear icon → Manage Extension Shortcuts.</p>
+      </section>
+
+      <p id="status" role="status"></p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
