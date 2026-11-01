@@ -1,6 +1,6 @@
 "use strict";
 
-const DEFAULTS = { apiKey: "", voice: "en-US-Standard-C", rate: 1.25, skipCode: true, usage: null };
+const DEFAULTS = { apiKey: "", voice: "en-US-Standard-C", rate: 1.25, skipCode: true, readCaptions: true, usage: null };
 const ORIGINS = ["<all_urls>"];
 const $ = (id) => document.getElementById(id);
 
@@ -13,6 +13,7 @@ async function load() {
   $("api-key").value = s.apiKey;
   $("rate").value = s.rate;
   $("skip-code").checked = s.skipCode;
+  $("read-captions").checked = s.readCaptions;
   setVoiceOptions([{ name: s.voice }], s.voice);
   showUsage(s.usage);
   checkPermissions();
@@ -79,6 +80,11 @@ $("rate").addEventListener("change", (e) => {
 
 $("skip-code").addEventListener("change", (e) => {
   browser.storage.local.set({ skipCode: e.target.checked });
+  setStatus("Saved.");
+});
+
+$("read-captions").addEventListener("change", (e) => {
+  browser.storage.local.set({ readCaptions: e.target.checked });
   setStatus("Saved.");
 });
 

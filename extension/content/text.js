@@ -20,19 +20,22 @@
     "FIELDSET", "FIGCAPTION", "FOOTER", "FORM", "H1", "H2", "H3", "H4", "H5", "H6", "HEADER", "HR",
     "LI", "MAIN", "OL", "P", "PRE", "SECTION", "SUMMARY", "TABLE", "TD", "TH", "TR", "UL",
   ]);
-  const HEADING_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6"]);
+  // Blocks that get a short pause around them so they don't run into the next paragraph.
+  const PAUSE_SELECTOR = "h1, h2, h3, h4, h5, h6, figure, figcaption, caption";
 
-  // Never read these (or anything inside them).
+  // Never read these (or anything inside them). Images are skipped as elements, so their
+  // alt text is never read even when the figure caption around them is.
   const SKIP_SELECTOR = [
     "script", "style", "noscript", "template",
     "img", "picture", "svg", "canvas", "video", "audio", "iframe", "object", "embed", "math",
-    "figure", "[role='img']", "[role='figure']", "[data-type='figure']",
+    "[role='img']",
     "nav", "button", "input", "select", "textarea",
     "[aria-hidden='true']", "[hidden]",
     // Footnote markers and the footnote list at the end of O'Reilly chapters.
     "sup > a", "a[data-type='noteref']", "[data-type='footnotes']",
   ].join(",");
   const CODE_SELECTOR = "pre";
+  const FIGURE_SELECTOR = "figure, [role='figure'], [data-type='figure']";
   const FOOTNOTE_MARK = /^[\s\d*†‡§,]+$/;
 
   const sentenceSegmenter = new Intl.Segmenter("en", { granularity: "sentence" });
@@ -54,8 +57,8 @@
     return el ?? root;
   }
 
-  function extractBlocks(root, { skipCode = true } = {}) {
-    const skip = skipCode ? `${SKIP_SELECTOR},${CODE_SELECTOR}` : SKIP_SELECTOR;
+  function extractBlocks(root, { skipCode = true, readCaptions = true } = {}) {
+    const skip = [SKIP_SELECTOR, skipCode && CODE_SELECTOR, !readCaptions && FIGURE_SELECTOR].filter(Boolean).join(",");
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, (node) => {
       if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
       if (node.matches(skip)) return NodeFilter.FILTER_REJECT;
@@ -71,7 +74,7 @@
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const el = blockAncestor(node, root);
       if (current?.el !== el) {
-        current = { el, heading: HEADING_TAGS.has(el.tagName), nodes: [], text: "" };
+        current = { el, pause: !!el.closest(PAUSE_SELECTOR), nodes: [], text: "" };
         blocks.push(current);
       }
       const start = current.text.length;

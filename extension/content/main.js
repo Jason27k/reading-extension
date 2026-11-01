@@ -5,7 +5,7 @@
 (() => {
   const { text, Player, Bar } = globalThis.RX;
 
-  const DEFAULTS = { voice: "en-US-Standard-C", rate: 1.25, skipCode: true };
+  const DEFAULTS = { voice: "en-US-Standard-C", rate: 1.25, skipCode: true, readCaptions: true };
   const MIN_RATE = 0.75;
   const MAX_RATE = 3;
   const RATE_STEP = 0.05;
@@ -46,7 +46,7 @@
     for (const key of Object.keys(DEFAULTS)) {
       if (key in changes) settings[key] = changes[key].newValue ?? DEFAULTS[key];
     }
-    if ("skipCode" in changes) state.blocks = null;
+    if ("skipCode" in changes || "readCaptions" in changes) state.blocks = null;
     if ("rate" in changes) bar.update({ rate: settings.rate });
   });
 
@@ -92,8 +92,7 @@
   function chunkSsml({ block, s0, s1 }) {
     const b = state.blocks[block];
     const body = text.segment(b).slice(s0, s1).map((s) => s.ssml).join(" ");
-    // A short pause around headings so they don't run into the next paragraph.
-    return b.heading ? `<speak><break time="250ms"/>${body}<break time="250ms"/></speak>` : `<speak>${body}</speak>`;
+    return b.pause ? `<speak><break time="250ms"/>${body}<break time="250ms"/></speak>` : `<speak>${body}</speak>`;
   }
 
   // ---- Playback ----
