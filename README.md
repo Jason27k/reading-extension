@@ -47,19 +47,7 @@ npm run build   # zip into web-ext-artifacts/
 
 ## Release
 
-Signing needs AMO API credentials from
-https://addons.mozilla.org/developers/addon/api/key/.
-
-1. Bump `version` in `extension/manifest.json` (AMO rejects a version it has
-   already signed).
-2. Sign it as an unlisted add-on:
-   ```sh
-   WEB_EXT_API_KEY=user:... WEB_EXT_API_SECRET=... npm run sign
-   ```
-   The signed `.xpi` lands in `web-ext-artifacts/`.
-3. Create a GitHub release tagged `v<version>` and attach the `.xpi` as
-   `read_along-<version>.xpi`.
-4. Add the version to `updates.json` and push to `main`.
+See [RELEASING.md](RELEASING.md).
 
 ## License
 
