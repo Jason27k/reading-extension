@@ -5,6 +5,10 @@
         {
           "version": "0.1.0",
           "update_link": "https://github.com/Jason27k/reading-extension/releases/download/v0.1.0/read_along-0.1.0.xpi"
+        },
+        {
+          "version": "0.2.0",
+          "update_link": "https://github.com/Jason27k/reading-extension/releases/download/v0.2.0/read_along-0.2.0.xpi"
         }
       ]
     }
