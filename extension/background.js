@@ -65,7 +65,9 @@ async function listVoices() {
   }
 }
 
-// Google bills every input character except <mark> tags. Writes are chained so
+// Google bills every input character except <mark> tags. Each device counts
+// under its own "usage-<id>" key in storage.sync, so devices never overwrite
+// each other and the settings page can add them up. Writes are chained so
 // concurrent prefetch requests don't overwrite each other's counts.
 let usageWrite = Promise.resolve();
 function recordUsage(ssml) {
@@ -73,11 +75,30 @@ function recordUsage(ssml) {
   usageWrite = usageWrite
     .then(async () => {
       const month = new Date().toISOString().slice(0, 7);
-      const { usage } = await browser.storage.local.get("usage");
+      const key = `usage-${await getDeviceId()}`;
+      const { [key]: usage } = await browser.storage.sync.get(key);
       const previous = usage?.month === month ? usage.chars : 0;
-      await browser.storage.local.set({ usage: { month, chars: previous + chars } });
+      await browser.storage.sync.set({ [key]: { month, chars: previous + chars } });
     })
     .catch(console.error);
+}
+
+async function getDeviceId() {
+  let { deviceId } = await browser.storage.local.get("deviceId");
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    await browser.storage.local.set({ deviceId });
+  }
+  return deviceId;
+}
+
+// Counts from earlier months, including from devices that are gone, aren't
+// shown anywhere, so drop them to stay well under the storage.sync quota.
+async function pruneOldUsage() {
+  const month = new Date().toISOString().slice(0, 7);
+  const all = await browser.storage.sync.get(null);
+  const old = Object.keys(all).filter((k) => k.startsWith("usage-") && all[k]?.month !== month);
+  if (old.length) await browser.storage.sync.remove(old);
 }
 
 async function sendToActiveTab(command, tab) {
@@ -93,6 +114,7 @@ browser.action.onClicked.addListener((tab) => sendToActiveTab("toggle-bar", tab)
 
 browser.runtime.onInstalled.addListener(() => {
   migrateToSync();
+  usageWrite = usageWrite.then(migrateUsage).then(pruneOldUsage).catch(console.error);
   browser.menus.create({
     id: "read-from-here",
     title: "Read aloud from here",
@@ -109,6 +131,20 @@ async function migrateToSync() {
   const synced = await browser.storage.sync.get(SYNCED_KEYS);
   if (!Object.keys(synced).length) await browser.storage.sync.set(old);
   await browser.storage.local.remove(SYNCED_KEYS);
+}
+
+// 0.1.0 counted usage in storage.local; carry this month's count over.
+async function migrateUsage() {
+  const { usage } = await browser.storage.local.get("usage");
+  if (!usage) return;
+  const month = new Date().toISOString().slice(0, 7);
+  if (usage.month === month) {
+    const key = `usage-${await getDeviceId()}`;
+    const { [key]: current } = await browser.storage.sync.get(key);
+    const chars = (current?.month === month ? current.chars : 0) + usage.chars;
+    await browser.storage.sync.set({ [key]: { month, chars } });
+  }
+  await browser.storage.local.remove("usage");
 }
 
 browser.menus.onClicked.addListener((info, tab) => {

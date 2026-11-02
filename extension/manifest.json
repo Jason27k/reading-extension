@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Read Along",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Reads web books aloud with Google Cloud Text-to-Speech, highlighting each word as it goes.",
   "browser_specific_settings": {
     "gecko": {

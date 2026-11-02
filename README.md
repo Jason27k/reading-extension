@@ -15,8 +15,9 @@ Install the signed `.xpi` from the
 settings (about:addons → Read Along → Preferences), paste your API key, and pick
 a voice.
 
-The API key and usage counter stay on each device. Voice, speed and the
-skip/caption toggles sync through Firefox Sync. Firefox checks
+The API key stays on each device. Voice, speed, the skip/caption toggles and
+the monthly character count sync through Firefox Sync (with **Add-ons** checked
+in Sync settings); the count shown is the total across devices. Firefox checks
 [updates.json](updates.json) about once a day and installs new versions
 automatically; about:addons → gear → **Check for Updates** checks right away.
 

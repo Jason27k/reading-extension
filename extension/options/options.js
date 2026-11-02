@@ -1,8 +1,8 @@
 "use strict";
 
-// Preferences sync across devices; the API key and usage count stay on this one.
+// Preferences and usage counts sync across devices; the API key stays on this one.
 const SYNCED = { voice: "en-US-Standard-C", rate: 1.25, skipCode: true, readCaptions: true };
-const LOCAL = { apiKey: "", usage: null };
+const LOCAL = { apiKey: "" };
 const ORIGINS = ["<all_urls>"];
 const $ = (id) => document.getElementById(id);
 
@@ -17,7 +17,7 @@ async function load() {
   $("skip-code").checked = s.skipCode;
   $("read-captions").checked = s.readCaptions;
   setVoiceOptions([{ name: s.voice }], s.voice);
-  showUsage(s.usage);
+  showUsage();
   checkPermissions();
   if (s.apiKey) loadVoices(s.voice);
 }
@@ -39,10 +39,20 @@ async function loadVoices(selected) {
   setVoiceOptions(res.voices, selected);
 }
 
-function showUsage(usage) {
+// Each device counts under its own "usage-<deviceId>" key; see background.js.
+async function showUsage() {
   const month = new Date().toISOString().slice(0, 7);
-  const chars = usage?.month === month ? usage.chars : 0;
-  $("usage").textContent = `${chars.toLocaleString()} characters`;
+  const all = await browser.storage.sync.get(null);
+  const { deviceId } = await browser.storage.local.get("deviceId");
+  let total = 0;
+  let here = 0;
+  for (const [key, usage] of Object.entries(all)) {
+    if (!key.startsWith("usage-") || usage?.month !== month) continue;
+    total += usage.chars;
+    if (key === `usage-${deviceId}`) here = usage.chars;
+  }
+  const text = `${total.toLocaleString()} characters`;
+  $("usage").textContent = total === here ? text : `${text} (${here.toLocaleString()} on this device)`;
 }
 
 async function checkPermissions() {
@@ -104,8 +114,8 @@ $("test").addEventListener("click", async () => {
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.usage) showUsage(changes.usage.newValue);
   if (area !== "sync") return;
+  if (Object.keys(changes).some((k) => k.startsWith("usage-"))) showUsage();
   if (changes.voice) $("voice").value = changes.voice.newValue;
   if (changes.rate) $("rate").value = changes.rate.newValue;
   if (changes.skipCode) $("skip-code").checked = changes.skipCode.newValue;
