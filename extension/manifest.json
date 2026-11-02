@@ -6,6 +6,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "read-along@jason27k",
+      "update_url": "https://raw.githubusercontent.com/Jason27k/reading-extension/main/updates.json",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["websiteContent"]

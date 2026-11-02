@@ -92,12 +92,25 @@ browser.commands.onCommand.addListener((command) => sendToActiveTab(command));
 browser.action.onClicked.addListener((tab) => sendToActiveTab("toggle-bar", tab));
 
 browser.runtime.onInstalled.addListener(() => {
+  migrateToSync();
   browser.menus.create({
     id: "read-from-here",
     title: "Read aloud from here",
     contexts: ["selection", "page", "link"],
   });
 });
+
+// Older versions kept preferences in storage.local. Move them to storage.sync,
+// unless another device has already synced its own.
+const SYNCED_KEYS = ["voice", "rate", "skipCode", "readCaptions"];
+async function migrateToSync() {
+  const old = await browser.storage.local.get(SYNCED_KEYS);
+  if (!Object.keys(old).length) return;
+  const synced = await browser.storage.sync.get(SYNCED_KEYS);
+  if (!Object.keys(synced).length) await browser.storage.sync.set(old);
+  await browser.storage.local.remove(SYNCED_KEYS);
+}
+
 browser.menus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "read-from-here") sendToActiveTab("read-from-context", tab);
 });

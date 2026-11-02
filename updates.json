@@ -1,0 +1,12 @@
+{
+  "addons": {
+    "read-along@jason27k": {
+      "updates": [
+        {
+          "version": "0.1.0",
+          "update_link": "https://github.com/Jason27k/reading-extension/releases/download/v0.1.0/read_along-0.1.0.xpi"
+        }
+      ]
+    }
+  }
+}

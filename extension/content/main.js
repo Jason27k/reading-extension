@@ -36,13 +36,13 @@
 
   // ---- Settings ----
 
-  browser.storage.local.get(DEFAULTS).then((stored) => {
+  browser.storage.sync.get(DEFAULTS).then((stored) => {
     settings = { ...DEFAULTS, ...stored };
     bar.update({ rate: settings.rate });
   });
 
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local") return;
+    if (area !== "sync") return;
     for (const key of Object.keys(DEFAULTS)) {
       if (key in changes) settings[key] = changes[key].newValue ?? DEFAULTS[key];
     }
@@ -253,7 +253,7 @@
     rate = Math.round(Math.min(MAX_RATE, Math.max(MIN_RATE, rate)) * 100) / 100;
     if (rate === settings.rate) return;
     settings.rate = rate;
-    browser.storage.local.set({ rate });
+    browser.storage.sync.set({ rate });
     bar.update({ rate });
     // Google synthesizes at the new speed (natural pitch), so the current sentence restarts.
     clearTimeout(state.rateTimer);

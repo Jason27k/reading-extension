@@ -1,6 +1,8 @@
 "use strict";
 
-const DEFAULTS = { apiKey: "", voice: "en-US-Standard-C", rate: 1.25, skipCode: true, readCaptions: true, usage: null };
+// Preferences sync across devices; the API key and usage count stay on this one.
+const SYNCED = { voice: "en-US-Standard-C", rate: 1.25, skipCode: true, readCaptions: true };
+const LOCAL = { apiKey: "", usage: null };
 const ORIGINS = ["<all_urls>"];
 const $ = (id) => document.getElementById(id);
 
@@ -9,7 +11,7 @@ function setStatus(text) {
 }
 
 async function load() {
-  const s = await browser.storage.local.get(DEFAULTS);
+  const s = { ...(await browser.storage.sync.get(SYNCED)), ...(await browser.storage.local.get(LOCAL)) };
   $("api-key").value = s.apiKey;
   $("rate").value = s.rate;
   $("skip-code").checked = s.skipCode;
@@ -67,24 +69,24 @@ $("api-key").addEventListener("change", async (e) => {
 });
 
 $("voice").addEventListener("change", (e) => {
-  browser.storage.local.set({ voice: e.target.value });
+  browser.storage.sync.set({ voice: e.target.value });
   setStatus("Voice saved.");
 });
 
 $("rate").addEventListener("change", (e) => {
   const rate = Math.min(3, Math.max(0.75, Number(e.target.value) || 1.25));
   e.target.value = rate;
-  browser.storage.local.set({ rate });
+  browser.storage.sync.set({ rate });
   setStatus("Speed saved.");
 });
 
 $("skip-code").addEventListener("change", (e) => {
-  browser.storage.local.set({ skipCode: e.target.checked });
+  browser.storage.sync.set({ skipCode: e.target.checked });
   setStatus("Saved.");
 });
 
 $("read-captions").addEventListener("change", (e) => {
-  browser.storage.local.set({ readCaptions: e.target.checked });
+  browser.storage.sync.set({ readCaptions: e.target.checked });
   setStatus("Saved.");
 });
 
@@ -103,6 +105,11 @@ $("test").addEventListener("click", async () => {
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.usage) showUsage(changes.usage.newValue);
+  if (area !== "sync") return;
+  if (changes.voice) $("voice").value = changes.voice.newValue;
+  if (changes.rate) $("rate").value = changes.rate.newValue;
+  if (changes.skipCode) $("skip-code").checked = changes.skipCode.newValue;
+  if (changes.readCaptions) $("read-captions").checked = changes.readCaptions.newValue;
 });
 
 load();
