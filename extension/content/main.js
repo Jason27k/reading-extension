@@ -255,7 +255,7 @@
     settings.rate = rate;
     browser.storage.sync.set({ rate });
     bar.update({ rate });
-    // Google synthesizes at the new speed (natural pitch), so the current sentence restarts.
+    // Clips are made at a fixed speed, so the current sentence restarts at the new one.
     clearTimeout(state.rateTimer);
     if (state.status === "playing" || state.status === "loading") {
       state.rateTimer = setTimeout(() => playFrom(state.pos), RATE_RESTART_DELAY);

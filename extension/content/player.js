@@ -7,6 +7,9 @@
   const RX = (globalThis.RX ??= {});
 
   const CACHE_SIZE = 40;
+  // Google synthesizes up to this speed; faster speeds are stretched locally,
+  // because Google's speedup slurs at high rates.
+  const NATIVE_MAX_RATE = 1.25;
   const FADE = 0.01; // seconds, time constant for fades
 
   class SynthError extends Error {
@@ -43,19 +46,22 @@
       return this.ctx?.currentTime ?? 0;
     }
 
-    // Returns a promise of { buffer, marks }, cached so prefetched or replayed text isn't re-billed.
+    // Returns a promise of { buffer, marks }. Google's audio is cached so prefetched
+    // or replayed text, and speed changes above NATIVE_MAX_RATE, aren't re-billed.
     synth(ssml, voice, rate) {
-      const key = `${voice}|${rate}|${ssml}`;
+      const googleRate = Math.min(rate, NATIVE_MAX_RATE);
+      const key = `${voice}|${googleRate}|${ssml}`;
       let clip = this.cache.get(key);
       if (clip) {
         this.cache.delete(key);
       } else {
-        clip = this.fetchClip(ssml, voice, rate);
+        clip = this.fetchClip(ssml, voice, googleRate);
         clip.catch(() => this.cache.delete(key));
       }
       this.cache.set(key, clip);
       if (this.cache.size > CACHE_SIZE) this.cache.delete(this.cache.keys().next().value);
-      return clip;
+      const factor = rate / googleRate;
+      return factor > 1.001 ? clip.then((c) => RX.stretchClip(c, factor)) : clip;
     }
 
     async fetchClip(ssml, voice, rate) {
