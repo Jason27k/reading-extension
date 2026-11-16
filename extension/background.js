@@ -56,7 +56,7 @@ async function listVoices() {
     if (!res.ok) return { error: data.error?.message || `HTTP ${res.status}` };
     // Only Standard and WaveNet voices support <mark> timepoints, which highlighting needs.
     const voices = data.voices
-      .filter((v) => /-(Standard|Wavenet)-/.test(v.name) && v.languageCodes.some((c) => c.startsWith("en-")))
+      .filter((v) => /-(Standard|Wavenet)-/.test(v.name) && v.languageCodes.some((c) => c.startsWith("en-") || c === "ja-JP"))
       .map((v) => ({ name: v.name, gender: v.ssmlGender }))
       .sort((a, b) => a.name.localeCompare(b.name));
     return { voices };

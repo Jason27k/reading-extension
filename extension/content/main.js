@@ -5,7 +5,14 @@
 (() => {
   const { text, Player, Bar } = globalThis.RX;
 
-  const DEFAULTS = { voice: "en-US-Standard-C", rate: 1.25, skipCode: true, readCaptions: true };
+  const DEFAULTS = {
+    voice: "en-US-Standard-C",
+    jaVoice: "ja-JP-Standard-A",
+    rate: 1.25,
+    jaRate: 1, // fixed: the bar's speed controls only change English
+    skipCode: true,
+    readCaptions: true,
+  };
   const MIN_RATE = 0.75;
   const MAX_RATE = 3;
   const RATE_STEP = 0.05;
@@ -89,10 +96,20 @@
     }
   }
 
-  function chunkSsml({ block, s0, s1 }) {
+  // One part per run of a single language, each with its own voice and speed.
+  function chunkParts({ block, s0, s1 }) {
     const b = state.blocks[block];
-    const body = text.segment(b).slice(s0, s1).map((s) => s.ssml).join(" ");
-    return b.pause ? `<speak><break time="250ms"/>${body}<break time="250ms"/></speak>` : `<speak>${body}</speak>`;
+    const runs = text.languageRuns(text.segment(b).slice(s0, s1));
+    return runs.map((run, i) => {
+      let ssml = run.ssml;
+      if (b.pause && i === 0) ssml = `<break time="250ms"/>${ssml}`;
+      if (b.pause && i === runs.length - 1) ssml += `<break time="250ms"/>`;
+      return {
+        ssml: `<speak>${ssml}</speak>`,
+        voice: run.ja ? settings.jaVoice : settings.voice,
+        rate: run.ja ? settings.jaRate : settings.rate,
+      };
+    });
   }
 
   // ---- Playback ----
@@ -130,7 +147,7 @@
     while (state.upcoming.length < PREFETCH) {
       const { value: chunk, done } = state.chunks.next();
       if (done) break;
-      const clip = player.synth(chunkSsml(chunk), settings.voice, settings.rate);
+      const clip = player.synthParts(chunkParts(chunk));
       clip.catch(() => {}); // reported when this chunk's turn comes
       state.upcoming.push({ chunk, clip });
     }

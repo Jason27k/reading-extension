@@ -68,7 +68,7 @@ Changes to what's stored need care, because existing installs carry data over
 between versions:
 
 - `storage.sync` (synced by Firefox Sync when **Add-ons** is checked):
-  `voice`, `rate`, `skipCode`, `readCaptions`, and one `usage-<deviceId>`
+  `voice`, `jaVoice`, `rate`, `jaRate`, `skipCode`, `readCaptions`, and one `usage-<deviceId>`
   entry per device. Each device writes only its own usage entry, and the
   settings page adds them up, so devices never overwrite each other's counts.
 - `storage.local` (this device only): `apiKey`, `deviceId`, `barPos`,

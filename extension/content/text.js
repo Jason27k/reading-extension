@@ -6,13 +6,20 @@
 (() => {
   const RX = (globalThis.RX ??= {});
 
-  // Where the book text lives, tried in order. The first match with real text wins.
-  const SITE_ROOTS = [
+  // Per-site settings. `selectors`: where the text lives, tried in order; the first match
+  // with real text wins. `skip`: extra elements never to read on that site.
+  const SITES = [
     {
       host: /(^|\.)oreilly\.com$/,
       selectors: ["#sbo-rt-content", "[data-testid='contentViewer']", "#book-content", "main"],
     },
+    {
+      host: /(^|\.)marumori\.io$/,
+      // Numbered badges ("1.3") next to example sentences.
+      skip: [".example-number"],
+    },
   ];
+  const site = SITES.find((s) => s.host.test(location.hostname));
   const GENERIC_ROOTS = ["article", "main", "[role='main']"];
 
   const BLOCK_TAGS = new Set([
@@ -31,6 +38,8 @@
     "[role='img']",
     "nav", "button", "input", "select", "textarea",
     "[aria-hidden='true']", "[hidden]",
+    // Furigana: the reading above a kanji would otherwise be read right after it.
+    "rt", "rp",
     // Footnote markers and the footnote list at the end of O'Reilly chapters.
     "sup > a", "a[data-type='noteref']", "[data-type='footnotes']",
   ].join(",");
@@ -43,7 +52,6 @@
   const encoder = new TextEncoder();
 
   function findRoot() {
-    const site = SITE_ROOTS.find((s) => s.host.test(location.hostname));
     for (const selector of [...(site?.selectors ?? []), ...GENERIC_ROOTS]) {
       const el = document.querySelector(selector);
       if (el && el.innerText.trim().length > 200) return el;
@@ -58,12 +66,16 @@
   }
 
   function extractBlocks(root, { skipCode = true, readCaptions = true } = {}) {
-    const skip = [SKIP_SELECTOR, skipCode && CODE_SELECTOR, !readCaptions && FIGURE_SELECTOR].filter(Boolean).join(",");
+    const skip = [SKIP_SELECTOR, ...(site?.skip ?? []), skipCode && CODE_SELECTOR, !readCaptions && FIGURE_SELECTOR]
+      .filter(Boolean)
+      .join(",");
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, (node) => {
       if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
       if (node.matches(skip)) return NodeFilter.FILTER_REJECT;
       if (node.tagName === "SUP" && FOOTNOTE_MARK.test(node.textContent)) return NodeFilter.FILTER_REJECT;
       if (node.checkVisibility && !node.checkVisibility()) return NodeFilter.FILTER_REJECT;
+      // Blurred text is hidden on purpose, e.g. a translation the reader should guess first.
+      if (getComputedStyle(node).filter.includes("blur(")) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_SKIP;
     });
 
@@ -93,8 +105,30 @@
     return s.replace(/[\u00AD\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replace(/\s+/g, " ");
   }
 
-  // Splits a block into sentences, each with its words and an SSML fragment that has a
-  // <mark name="sentence.word"/> before every word so playback can report its position.
+  // Only English and Japanese are read, so the script decides the language: a word with
+  // kana or kanji (or fullwidth/CJK punctuation) is Japanese, one with Latin letters is
+  // English. Everything else (digits, spaces, punctuation) stays with the run it is in.
+  const JAPANESE = /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}\u3000-\u303f\u30fc\uff00-\uffef]/u;
+  const LATIN = /\p{Script=Latin}/u;
+
+  // The segmenter can split a word like だった into だ/っ/た. A mark between those pieces
+  // could break up the sound, so a piece that starts with a small kana or ー, or follows
+  // a っ, stays part of the word before it.
+  const JOINS_PREVIOUS = /^[ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶー]/;
+  const JOINS_NEXT = /[っッ]$/;
+
+  function languageOf(part, i, parts) {
+    if (!part.isWordLike) return null;
+    if (JAPANESE.test(part.segment)) return "ja";
+    if (LATIN.test(part.segment)) return "en";
+    // A number written right before Japanese is part of it, like 3時 or 2人.
+    if (parts[i + 1]?.isWordLike && JAPANESE.test(parts[i + 1].segment)) return "ja";
+    return null;
+  }
+
+  // Splits a block into sentences, each with its words and its SSML split into runs of one
+  // language. Every word gets a <mark name="sentence.word"/> before it so playback can
+  // report its position.
   function segment(block) {
     if (block.sentences) return block.sentences;
     block.sentences = [];
@@ -107,25 +141,56 @@
 
       const s = block.sentences.length;
       const words = [];
-      let ssml = "";
-      for (const part of parts) {
-        if (part.isWordLike) {
-          ssml += `<mark name="${s}.${words.length}"/>`;
-          words.push({ start: index + part.index, end: index + part.index + part.segment.length });
+      const languages = parts.map((p, i) => languageOf(p, i, parts));
+      // Leading digits or punctuation take the language of the first real word.
+      let language = languages.find(Boolean) ?? "en";
+      const runs = [];
+      let run = { ja: language === "ja", ssml: "" };
+      parts.forEach((part, i) => {
+        if (languages[i] && languages[i] !== language) {
+          if (run.ssml) runs.push(run);
+          language = languages[i];
+          run = { ja: language === "ja", ssml: "" };
         }
-        ssml += escapeXml(cleanForSpeech(part.segment));
-      }
-      ssml = ssml.trim();
-      const lead = sentence.length - sentence.trimStart().length;
-      block.sentences.push({
-        start: index + lead,
-        end: index + sentence.trimEnd().length,
-        words,
-        ssml,
-        bytes: encoder.encode(ssml).length,
+        if (part.isWordLike) {
+          const prev = parts[i - 1];
+          const joins =
+            languages[i] === "ja" &&
+            languages[i - 1] === "ja" &&
+            (JOINS_PREVIOUS.test(part.segment) || JOINS_NEXT.test(prev.segment));
+          if (joins) {
+            words.at(-1).end = index + part.index + part.segment.length;
+          } else {
+            run.ssml += `<mark name="${s}.${words.length}"/>`;
+            words.push({ start: index + part.index, end: index + part.index + part.segment.length });
+          }
+        }
+        run.ssml += escapeXml(cleanForSpeech(part.segment));
       });
+      runs.push(run);
+      runs[0].ssml = runs[0].ssml.trimStart();
+      runs.at(-1).ssml = runs.at(-1).ssml.trimEnd();
+
+      const lead = sentence.length - sentence.trimStart().length;
+      const result = { start: index + lead, end: index + sentence.trimEnd().length, words, runs };
+      result.bytes = runs.reduce((sum, r) => sum + encoder.encode(r.ssml).length, 0);
+      block.sentences.push(result);
     }
     return block.sentences;
+  }
+
+  // Joins the runs of consecutive sentences into runs of one language each, so every
+  // run can be synthesized with its own voice and speed.
+  function languageRuns(sentences) {
+    const merged = [];
+    for (const { runs } of sentences) {
+      for (const run of runs) {
+        const last = merged.at(-1);
+        if (last?.ja === run.ja) last.ssml += ` ${run.ssml}`;
+        else merged.push({ ...run });
+      }
+    }
+    return merged.map((r) => ({ ja: r.ja, ssml: r.ssml.trim() })).filter((r) => r.ssml);
   }
 
   function locate(block, offset, isEnd) {
@@ -177,5 +242,5 @@
     return Math.max(i, 0);
   }
 
-  RX.text = { findRoot, extractBlocks, segment, rangeFor, positionOf, firstVisibleBlock };
+  RX.text = { findRoot, extractBlocks, segment, languageRuns, rangeFor, positionOf, firstVisibleBlock };
 })();

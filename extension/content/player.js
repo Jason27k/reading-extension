@@ -19,6 +19,27 @@
     }
   }
 
+  // Plays clips back to back as one, shifting each one's word marks by where it starts.
+  // Every buffer comes from the same AudioContext, so they share a sample rate.
+  function joinClips(clips) {
+    const { sampleRate } = clips[0].buffer;
+    const channels = Math.max(...clips.map((c) => c.buffer.numberOfChannels));
+    const length = clips.reduce((sum, c) => sum + c.buffer.length, 0);
+    const buffer = new AudioBuffer({ numberOfChannels: channels, length, sampleRate });
+    const marks = [];
+    let offset = 0;
+    for (const clip of clips) {
+      for (let ch = 0; ch < channels; ch++) {
+        const source = Math.min(ch, clip.buffer.numberOfChannels - 1);
+        buffer.copyToChannel(clip.buffer.getChannelData(source), ch, offset);
+      }
+      const start = offset / sampleRate;
+      for (const m of clip.marks) marks.push({ ...m, time: m.time + start });
+      offset += clip.buffer.length;
+    }
+    return { buffer, marks };
+  }
+
   class Player {
     constructor() {
       this.cache = new Map();
@@ -62,6 +83,14 @@
       if (this.cache.size > CACHE_SIZE) this.cache.delete(this.cache.keys().next().value);
       const factor = rate / googleRate;
       return factor > 1.001 ? clip.then((c) => RX.stretchClip(c, factor)) : clip;
+    }
+
+    // Synthesizes each part ({ ssml, voice, rate }) on its own and joins them into one
+    // clip. Google's word timings are wrong after a <voice> switch inside one request,
+    // so text in another language is a separate request rather than a <voice> tag.
+    async synthParts(parts) {
+      const clips = await Promise.all(parts.map((p) => this.synth(p.ssml, p.voice, p.rate)));
+      return clips.length === 1 ? clips[0] : joinClips(clips);
     }
 
     async fetchClip(ssml, voice, rate) {

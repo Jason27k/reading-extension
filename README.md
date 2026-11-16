@@ -13,9 +13,14 @@ Install the signed `.xpi` from the
 [latest release](https://github.com/Jason27k/reading-extension/releases/latest)
 (open it in Firefox, or drag it onto about:addons). Then open the extension's
 settings (about:addons → Read Along → Preferences), paste your API key, and pick
-a voice.
+the voices.
 
-The API key stays on each device. Voice, speed, the skip/caption toggles and
+Japanese text on English pages (for example, example sentences in a language
+course) is read with a separate Japanese voice and speed, switching mid-sentence where
+needed. The speed controls on the reading bar only change English. Furigana and
+blurred text (such as hidden translations) are skipped.
+
+The API key stays on each device. Voices, speed, the skip/caption toggles and
 the monthly character count sync through Firefox Sync (with **Add-ons** checked
 in Sync settings); the count shown is the total across devices. Firefox checks
 [updates.json](updates.json) about once a day and installs new versions
