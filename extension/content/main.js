@@ -3,7 +3,7 @@
 // Controller: ties page text, audio and the control bar together, keeps the
 // highlight in sync with playback and handles every command.
 (() => {
-  const { text, Player, Bar } = globalThis.RX;
+  const { text, Player, Bar, Tracker } = globalThis.RX;
 
   const DEFAULTS = {
     voice: "en-US-Standard-C",
@@ -25,6 +25,7 @@
   let settings = { ...DEFAULTS };
   const player = new Player();
   const bar = new Bar({ onAction: handleCommand });
+  const tracker = new Tracker();
 
   const state = {
     status: "stopped", // stopped | loading | playing | paused
@@ -39,6 +40,7 @@
     highlighted: null,
     userScrollUntil: 0,
     lastContextMenu: null,
+    countedTo: 0, // AudioContext time up to which heard audio has been counted
   };
 
   // ---- Settings ----
@@ -108,6 +110,7 @@
         ssml: `<speak>${ssml}</speak>`,
         voice: run.ja ? settings.jaVoice : settings.voice,
         rate: run.ja ? settings.jaRate : settings.rate,
+        lang: run.ja ? "ja" : "en",
       };
     });
   }
@@ -122,6 +125,7 @@
 
   async function playFrom(pos) {
     const gen = ++state.gen;
+    countTo(player.now());
     player.stopAll();
     state.upcoming = [];
     state.scheduled = [];
@@ -176,6 +180,7 @@
         if (gen !== state.gen) return;
         const item = { chunk: next.chunk, clip };
         item.start = player.schedule(clip, () => {
+          countTo(item.start + clip.buffer.duration);
           state.scheduled = state.scheduled.filter((it) => it !== item);
           if (gen === state.gen) pump(gen);
         });
@@ -188,6 +193,8 @@
   }
 
   function pause() {
+    countTo(player.now());
+    tracker.flush();
     player.pause();
     setStatus("paused");
   }
@@ -202,6 +209,8 @@
 
   function stop() {
     state.gen++;
+    countTo(player.now());
+    tracker.flush();
     player.stopAll();
     state.upcoming = [];
     state.scheduled = [];
@@ -223,6 +232,27 @@
       bar.message(`Couldn't read this part: ${err.message}`);
     }
   }
+
+  // ---- Reading time ----
+
+  // Counts the audio heard between the last count and AudioContext time t. The
+  // context's clock stops while paused, and gaps between clips (loading, after a
+  // skip) fall outside every clip, so only audio that actually played is counted.
+  function countTo(t) {
+    for (const item of state.scheduled) {
+      for (const seg of item.clip.segments) {
+        const from = Math.max(state.countedTo, item.start + seg.start);
+        const to = Math.min(t, item.start + seg.end);
+        if (to > from) tracker.add(seg.lang, to - from, (to - from) * seg.rate);
+      }
+    }
+    state.countedTo = Math.max(state.countedTo, t);
+  }
+
+  addEventListener("pagehide", () => {
+    if (state.status === "playing") countTo(player.now());
+    tracker.flush();
+  });
 
   // ---- Commands ----
 
@@ -360,6 +390,7 @@
       state.raf = requestAnimationFrame(tick);
       if (state.status !== "playing") return;
       const t = player.now();
+      countTo(t);
       const item = state.scheduled.find((it) => t >= it.start && t < it.start + it.clip.buffer.duration);
       if (!item) return;
       let mark = null;

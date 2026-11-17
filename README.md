@@ -22,7 +22,13 @@ blurred text (such as hidden translations) are skipped.
 
 The API key stays on each device. Voices, speed, the skip/caption toggles and
 the monthly character count sync through Firefox Sync (with **Add-ons** checked
-in Sync settings); the count shown is the total across devices. Firefox checks
+in Sync settings); the count shown is the total across devices.
+
+The settings page also shows reading time for English and Japanese, per day and
+per site: how long the audio you heard would take at normal (1×) speed. The last
+30 days sync and add up across devices; the full history stays on each device.
+
+Firefox checks
 [updates.json](updates.json) about once a day and installs new versions
 automatically; about:addons → gear → **Check for Updates** checks right away.
 

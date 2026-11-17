@@ -117,6 +117,36 @@ td:first-child {
   font-family: ui-monospace, monospace;
 }
 
+h3 {
+  font-size: 14px;
+  margin: 16px 0 4px;
+}
+
+table.time th,
+table.time td {
+  padding: 3px 0 3px 24px;
+  text-align: right;
+  font-family: inherit;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+table.time th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+table.time th:first-child,
+table.time td:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+
+table.time td:first-child {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 #permission-warning {
   padding: 12px 16px;
   border: 1px solid var(--accent);

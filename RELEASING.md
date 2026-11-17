@@ -71,8 +71,12 @@ between versions:
   `voice`, `jaVoice`, `rate`, `jaRate`, `skipCode`, `readCaptions`, and one `usage-<deviceId>`
   entry per device. Each device writes only its own usage entry, and the
   settings page adds them up, so devices never overwrite each other's counts.
+  Reading time for the last 30 days is there too, as one
+  `time-<deviceId>-<YYYY-MM-DD>` entry per device per day, rounded to seconds;
+  older days are removed on startup (`syncRecentTime`).
 - `storage.local` (this device only): `apiKey`, `deviceId`, `barPos`,
-  `barCollapsed`.
+  `barCollapsed`, and the full reading-time history as one `time-<YYYY-MM-DD>`
+  entry per day.
 - Data saved by older versions is moved in `background.js` (`migrateToSync`,
   `migrateUsage`) from `runtime.onInstalled`. Add a migration there when moving
   or renaming a key.

@@ -85,12 +85,21 @@
       return factor > 1.001 ? clip.then((c) => RX.stretchClip(c, factor)) : clip;
     }
 
-    // Synthesizes each part ({ ssml, voice, rate }) on its own and joins them into one
-    // clip. Google's word timings are wrong after a <voice> switch inside one request,
+    // Synthesizes each part ({ ssml, voice, rate, lang }) on its own and joins them into
+    // one clip. Google's word timings are wrong after a <voice> switch inside one request,
     // so text in another language is a separate request rather than a <voice> tag.
+    // The clip's segments say where each part sits in it, for counting reading time.
     async synthParts(parts) {
       const clips = await Promise.all(parts.map((p) => this.synth(p.ssml, p.voice, p.rate)));
-      return clips.length === 1 ? clips[0] : joinClips(clips);
+      const joined = clips.length === 1 ? clips[0] : joinClips(clips);
+      let start = 0;
+      const segments = clips.map((clip, i) => {
+        const end = start + clip.buffer.duration;
+        const segment = { start, end, rate: parts[i].rate, lang: parts[i].lang };
+        start = end;
+        return segment;
+      });
+      return { ...joined, segments };
     }
 
     async fetchClip(ssml, voice, rate) {

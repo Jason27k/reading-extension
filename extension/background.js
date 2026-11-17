@@ -13,6 +13,8 @@ browser.runtime.onMessage.addListener((msg) => {
       return listVoices();
     case "open-options":
       return browser.runtime.openOptionsPage();
+    case "record-time":
+      return recordTime(msg);
   }
 });
 
@@ -83,6 +85,72 @@ function recordUsage(ssml) {
     .catch(console.error);
 }
 
+// Reading time is kept per day as { site: { en: { listened, normal }, ja: … } }.
+// The full history stays on this device under "time-<YYYY-MM-DD>" in
+// storage.local; a year of it would outgrow storage.sync's quota. The last
+// RECENT_DAYS days are copied to storage.sync under "time-<deviceId>-<day>", one
+// key per device so devices never overwrite each other, for the settings page
+// to add up. Writes are chained so tabs reading at the same time don't
+// overwrite each other.
+const RECENT_DAYS = 30;
+let timeWrite = Promise.resolve();
+function recordTime({ day, site, time }) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || typeof site !== "string") return;
+  timeWrite = timeWrite
+    .then(async () => {
+      const key = `time-${day}`;
+      const { [key]: sites = {} } = await browser.storage.local.get(key);
+      const totals = (sites[site] ??= {});
+      for (const lang of ["en", "ja"]) {
+        const add = time?.[lang];
+        if (!Number.isFinite(add?.listened) || !Number.isFinite(add?.normal)) continue;
+        const t = (totals[lang] ??= { listened: 0, normal: 0 });
+        t.listened += add.listened;
+        t.normal += add.normal;
+      }
+      await browser.storage.local.set({ [key]: sites });
+      await syncDay(day, sites);
+    })
+    .catch(console.error);
+}
+
+// Synced copies are rounded to whole seconds to save quota.
+async function syncDay(day, sites) {
+  const rounded = {};
+  for (const [site, langs] of Object.entries(sites)) {
+    rounded[site] = {};
+    for (const [lang, t] of Object.entries(langs)) {
+      rounded[site][lang] = { listened: Math.round(t.listened), normal: Math.round(t.normal) };
+    }
+  }
+  await browser.storage.sync.set({ [`time-${await getDeviceId()}-${day}`]: rounded });
+}
+
+function localDay(daysAgo = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Drops synced days older than RECENT_DAYS, from every device including ones
+// that are gone, and copies this device's recent days in case they aren't
+// synced yet (time read before syncing started).
+async function syncRecentTime() {
+  const from = localDay(RECENT_DAYS - 1);
+  const synced = await browser.storage.sync.get(null);
+  const old = Object.keys(synced).filter((k) => k.startsWith("time-") && k.slice(-10) < from);
+  if (old.length) await browser.storage.sync.remove(old);
+  const deviceId = await getDeviceId();
+  const local = await browser.storage.local.get(null);
+  for (const [key, sites] of Object.entries(local)) {
+    const day = key.slice(5);
+    if (key.startsWith("time-") && day >= from && !(`time-${deviceId}-${day}` in synced)) {
+      await syncDay(day, sites);
+    }
+  }
+}
+
 async function getDeviceId() {
   let { deviceId } = await browser.storage.local.get("deviceId");
   if (!deviceId) {
@@ -112,9 +180,14 @@ async function sendToActiveTab(command, tab) {
 browser.commands.onCommand.addListener((command) => sendToActiveTab(command));
 browser.action.onClicked.addListener((tab) => sendToActiveTab("toggle-bar", tab));
 
+browser.runtime.onStartup.addListener(() => {
+  timeWrite = timeWrite.then(syncRecentTime).catch(console.error);
+});
+
 browser.runtime.onInstalled.addListener(() => {
   migrateToSync();
   usageWrite = usageWrite.then(migrateUsage).then(pruneOldUsage).catch(console.error);
+  timeWrite = timeWrite.then(syncRecentTime).catch(console.error);
   browser.menus.create({
     id: "read-from-here",
     title: "Read aloud from here",
